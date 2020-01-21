@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.util.InputMismatchException;
 import java.util.Scanner;
 
@@ -103,7 +104,7 @@ public class Servidor {
 		zk.createServer(idServer);
 	}
 
-	private static void doAction(String resp) {
+	private static void doAction(String resp) throws UnsupportedEncodingException {
 		String[] data = resp.split(":");
 		String action = data[0];
 		String values = data[1];
@@ -111,6 +112,15 @@ public class Servidor {
 		System.out.println(action);
 		System.out.println("valores: ");
 		System.out.println(values);
+		byte[] updateByte = values.getBytes("utf-8");
+		//String sustituir = "\""+values.split(";")[2]+"\":\""+values.split(";")[3]+"\"";
+		String campoSustituir = "";
+		String valorSustituir = "";
+		String campoComprobar = "";
+		String valorComprobar = "";
+		
+		
+		
 		idLeader = zk.getLeader().split("-")[1];
 		try {
 			switch (action) {
@@ -130,21 +140,19 @@ public class Servidor {
 				
 				break;
 			case "updateSaldo":
-				System.out.print("entramos en updateSaldo");
-				byte[] updateByte = values.getBytes("utf-8");
-				//String sustituir = "\""+values.split(";")[2]+"\":\""+values.split(";")[3]+"\"";
-				String campoSustituir = values.split(";")[2];
-				String valorSustituir = values.split(";")[3];
-				String campoComprobar = values.split(";")[0];
-				String valorComprobar = values.split(";")[1];
+				campoSustituir = values.split(";")[2];
+				valorSustituir = values.split(";")[3];
+				campoComprobar = values.split(";")[0];
+				valorComprobar = values.split(";")[1];
 				String updateArray[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
-				String comprobar = "\""+values.split(";")[0]+"\":\""+values.split(";")[1]+"\"";
-				System.out.println("comprobar: ");
-				System.out.println(comprobar);
+				System.out.println("entramos en updateSaldo");
+			
 				if(idServer.equals(idLeader)) {
-					if(actionsDB.comprobarUpdate(comprobar)) {
+					System.out.println("es lider: ");
+					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
+					if(comp) {
 						zk.addOperation(action, updateByte);
-						actionsDB.updateSaldo(comprobar, updateArray);
+						actionsDB.update(updateArray);
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
 						
@@ -155,8 +163,54 @@ public class Servidor {
 					
 					zk.addOpQueue(action, updateByte);
 				}
+			case "updateNombre":
+				System.out.println("entramos en updateNombre");
+				campoSustituir = values.split(";")[2];
+				valorSustituir = values.split(";")[3];
+				campoComprobar = values.split(";")[0];
+				valorComprobar = values.split(";")[1];
+				String updateArrayN[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
 				
-
+				if(idServer.equals(idLeader)) {
+					System.out.println("es lider: ");
+					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
+					if(comp) {
+						zk.addOperation(action, updateByte);
+						actionsDB.update(updateArrayN);
+					}else {
+						System.out.println("No existe ningun cliente con ese número de cuenta");
+						
+					}
+					
+					
+				}else {
+					
+					zk.addOpQueue(action, updateByte);
+				}
+			case "updateCuenta":
+				System.out.println("entramos en updateCuenta");
+				
+				campoSustituir = values.split(";")[2];
+				valorSustituir = values.split(";")[3];
+				campoComprobar = values.split(";")[0];
+				valorComprobar = values.split(";")[1];
+				String updateArrayC[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
+				if(idServer.equals(idLeader)) {
+					System.out.println("es lider: ");
+					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
+					if(comp) {
+						zk.addOperation(action, updateByte);
+						actionsDB.update(updateArrayC);
+					}else {
+						System.out.println("No existe ningun cliente con ese número de cuenta");
+						
+					}
+					
+					
+				}else {
+					
+					zk.addOpQueue(action, updateByte);
+				}
 			default:
 				break;
 			}

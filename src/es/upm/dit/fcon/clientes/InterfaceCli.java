@@ -83,21 +83,21 @@ public class InterfaceCli {
                         			Scanner s4 = new Scanner(System.in);
                         			int nuevoNumero = s4.nextInt();
                         			System.out.println("El nuevo numero de cuenta sera: " + nuevoNumero);
-                        			res=res+"updateCuenta:"+nuevoNumero;
+                        			res=res+"updateCuenta:"+"Ncuenta;"+idClient+";"+"Ncuenta;"+nuevoNumero;
                         			return res;
                         		case "3":
                         			System.out.println("Introduza el nuevo nombre del propietario");
                         			Scanner s5 = new Scanner(System.in);
-                        			int nuevoPropietario = s5.nextInt();
+                        			String nuevoPropietario = s5.next();
                         			System.out.println("El nuevo propietario sera: " + nuevoPropietario);
-                        			res=res+"updateNombre:"+nuevoPropietario;
+                        			res=res+"updateNombre:"+"Ncuenta;"+idClient+";"+"name;"+nuevoPropietario;
                         			return res;
                  
                         	}
                         	
                         }catch (Exception e) {
                         	System.out.println("Ha ocurrido un error");
-                      
+                        	
         	                salir=true;
         	            }
                         break;
