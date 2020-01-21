@@ -36,7 +36,7 @@ public class Servidor {
 	private static InterfaceCli interfaceCli;
 	private static ActionsDB actionsDB;
 	private static String idLeader;
-	
+	private static String resp;
 	
 	
 	public Servidor() {
@@ -129,13 +129,22 @@ public class Servidor {
 				byte[] clientByte = cliente.toString().getBytes("utf-8");
 				
 				if(idServer.equals(idLeader)) {
-
-					zk.addOperation(action, clientByte);
-					createClient(cliente);
+					String comprob = values.split(";")[2];
+					boolean comp= actionsDB.comprobarUpdate(comprob);
+					if(comp) {
+						System.out.println("Ya existe un cliente con ese numero de cuenta");
+						resp = interfaceCli.interface_cli();
+					}else {
+						zk.addOperation(action, clientByte);
+						createClient(cliente);
+						resp = interfaceCli.interface_cli();
+					}
+					
 					
 				}else {
 					
 					zk.addOpQueue(action, clientByte);
+					resp = interfaceCli.interface_cli();
 				}
 				
 				break;
@@ -153,8 +162,10 @@ public class Servidor {
 					if(comp) {
 						zk.addOperation(action, updateByte);
 						actionsDB.update(updateArray);
+						resp = interfaceCli.interface_cli();
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
+						resp = interfaceCli.interface_cli();
 						
 					}
 					
@@ -162,6 +173,7 @@ public class Servidor {
 				}else {
 					
 					zk.addOpQueue(action, updateByte);
+					resp = interfaceCli.interface_cli();
 				}
 			case "updateNombre":
 				System.out.println("entramos en updateNombre");
@@ -177,15 +189,18 @@ public class Servidor {
 					if(comp) {
 						zk.addOperation(action, updateByte);
 						actionsDB.update(updateArrayN);
+						
+						resp = interfaceCli.interface_cli();
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
-						
+						resp = interfaceCli.interface_cli();
 					}
 					
 					
 				}else {
 					
 					zk.addOpQueue(action, updateByte);
+					resp = interfaceCli.interface_cli();
 				}
 			case "updateCuenta":
 				System.out.println("entramos en updateCuenta");
@@ -201,8 +216,11 @@ public class Servidor {
 					if(comp) {
 						zk.addOperation(action, updateByte);
 						actionsDB.update(updateArrayC);
+						
+						resp = interfaceCli.interface_cli();
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
+						resp = interfaceCli.interface_cli();
 						
 					}
 					
@@ -210,7 +228,57 @@ public class Servidor {
 				}else {
 					
 					zk.addOpQueue(action, updateByte);
+					resp = interfaceCli.interface_cli();
 				}
+			case "read":
+				System.out.println("entramos en read");
+				valorComprobar = values;
+				
+				boolean comp= actionsDB.comprobarUpdate(valorComprobar);
+				if(comp) {
+					org.json.JSONObject client = actionsDB.readClient(valorComprobar);
+					System.out.println("El cliente que se corresponde con este id es: ");
+					System.out.println(client);
+					
+					resp = interfaceCli.interface_cli();
+				}else {
+					System.out.println("No existe ningun cliente con ese número de cuenta");
+					resp = interfaceCli.interface_cli();
+					
+				}
+					
+			case "readAll":
+				System.out.println("entramos en readAll");
+				org.json.JSONArray clients = actionsDB.readAllClient();
+				System.out.println("Los clientes registrados son: ");
+				System.out.println(clients);
+				resp = interfaceCli.interface_cli();
+				
+			case "delete":
+				
+				valorComprobar = values;
+				if(idServer.equals(idLeader)) {
+					System.out.println("es lider: ");
+					boolean compr= actionsDB.comprobarUpdate(valorComprobar);
+					if(compr) {
+						zk.addOperation(action, updateByte);
+						org.json.JSONObject client = actionsDB.deleteClient(valorComprobar);
+						System.out.println("El cliente eliminado ha sido: ");
+						System.out.println(client);
+						resp = interfaceCli.interface_cli();
+					}else {
+						System.out.println("No existe ningun cliente con ese número de cuenta");
+						resp = interfaceCli.interface_cli();
+						
+					}
+					
+					
+				}else {
+					
+					zk.addOpQueue(action, updateByte);
+					resp = interfaceCli.interface_cli();
+				}
+				
 			default:
 				break;
 			}
@@ -233,7 +301,8 @@ public class Servidor {
 			//dentro de datos campo;nombre para generar de forma generica
 			
 			createDB(ruta);
-			String resp = interfaceCli.interface_cli();
+			resp = interfaceCli.interface_cli();
+			
 			
 			doAction(resp);
 			System.out.print("La respuesta ha sido: " + resp);

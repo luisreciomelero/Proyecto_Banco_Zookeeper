@@ -17,6 +17,8 @@ public class InterfaceCli {
 	public InterfaceCli(String idServer) {
 		this.idServer =idServer;
 	}
+	
+	
 
 	public String interface_cli() {
 		String res="";
@@ -110,9 +112,10 @@ public class InterfaceCli {
                         return res;
                     case "4":
                         System.out.println("Obteniendo el listado de clientes...");
-                        res=res+opcion;
+                        res=res+"readAll: ";
                         return res;
                     case "5":
+                    	System.out.println("Introduzca el numero de cuenta a eliminar: ");
                     	Scanner c3 = new Scanner(System.in);
                         int eliminarC = c3.nextInt();
                         System.out.println("Se eliminará la cuenta: " +eliminarC);
@@ -124,7 +127,7 @@ public class InterfaceCli {
                         return res;
                     default:
                         System.out.println("Solo números entre 1 y 6");
-                        return res;
+                        
                 }
             } catch (InputMismatchException e) {
                 System.out.println("Debes insertar un número");

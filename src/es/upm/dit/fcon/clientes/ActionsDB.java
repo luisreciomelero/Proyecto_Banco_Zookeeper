@@ -122,6 +122,47 @@ public class ActionsDB {
 		}
 	}
 	
+	public JSONObject readClient(String idClient) {
+		String rutaDB = "/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+idServer+".json";
+		JSONArray clientList = readDB(rutaDB);
+		try {
+			int idClientDB = getIdClient(idClient);
+			
+			JSONObject client = clientList.getJSONObject(idClientDB);
+			return client;
+			
+		} catch (IOException | ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+		
+	}
+	
+	public JSONArray readAllClient() {
+		String rutaDB = "/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+idServer+".json";
+		JSONArray clientList = readDB(rutaDB);
+		return clientList;
+	}
+
+	public JSONObject deleteClient(String idClient) {
+		String rutaDB = "/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+idServer+".json";
+		JSONArray clientList = readDB(rutaDB);
+		try {
+			int idClientDB = getIdClient(idClient);
+			
+			JSONObject client = clientList.getJSONObject(idClientDB);
+			clientList.remove(idClientDB);
+			writeDB(clientList);
+			return client;
+			
+		} catch (IOException | ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+	}
+
 	
 	
 	
