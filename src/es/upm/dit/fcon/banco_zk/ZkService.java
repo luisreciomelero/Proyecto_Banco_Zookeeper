@@ -141,23 +141,16 @@ public class ZkService implements Watcher{
 		
 	}
 	
-	public void addOperation(String action, byte[] clientByte, int actionCreateId) throws KeeperException, InterruptedException {
+	public void addOperation(String action, byte[] clientByte) throws KeeperException, InterruptedException {
 		
-		Stat s = zk.exists(ROOT_OPERACIONES + "/"+ action + "-" +actionCreateId, false);
-		if(s==null) {
-			System.out.println("CREAMOS");
-			zk.create(ROOT_OPERACIONES + "/"+ action + "-" +actionCreateId, clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
-			
-		}
+		zk.create(ROOT_OPERACIONES + "/"+ action +"-", clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
 	}
 	
-	public void addOpQueue(String action, byte[] clientByte, int idOpQueue) throws KeeperException, InterruptedException {
-		Stat o = zk.exists(ROOT_COLA + "/"+ action + "-" +idOpQueue, false);
-		if(o==null) {
-			System.out.println("CREAMOS");
-			zk.create(ROOT_COLA + "/"+ action + "-" +idOpQueue, clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+	public void addOpQueue(String action, byte[] clientByte) throws KeeperException, InterruptedException {
+		
+		zk.create(ROOT_COLA + "/"+ action + "-" , clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
 			
-		}
+		
 	}
 	
 
