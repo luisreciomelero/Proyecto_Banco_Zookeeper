@@ -32,6 +32,7 @@ public class Servidor {
 	
 	private  String idServer;
 	private  String ruta ="";
+	private  String idBBDD ="";
 	//private static ZkService zk;
 	private  InterfaceCli interfaceCli;
 	private  ActionsDB actionsDB;
@@ -134,7 +135,7 @@ public class Servidor {
 		
 		private void selectLeader() throws KeeperException, InterruptedException {
 			
-			List<String> list = zk.getChildren(ROOT_SERVIDORES, watcherServerLd);
+			List<String> list = zk.getChildren(ROOT_SERVIDORES, false);
 			//ElectionLeader
 			Collections.sort(list);
 			Object[] Sortedlist = list.toArray();
@@ -143,18 +144,17 @@ public class Servidor {
 			System.out.println(leader);
 		}
 		
-		public void createServer(String idServer) throws KeeperException, InterruptedException {
+		public void createServer() throws KeeperException, InterruptedException {
 			String servidor = new String();
-			Stat s = zk.exists(ROOT_SERVIDORES + aServer + idServer, watcherServidores);
+			//Stat s = zk.exists(ROOT_SERVIDORES + aServer + idServer, watcherServidores);
 			
 			try {
-				if(s == null) {
-					servidor = zk.create(ROOT_SERVIDORES + aServer + idServer , new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
-					System.out.println("Response servidor: " + servidor);
-					
-				}else {
-					System.out.print("conectados a servidor:" + aServer + idServer);
-				}
+				
+				idServer = zk.create(ROOT_SERVIDORES + aServer , new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);
+				idServer= idServer.replace(ROOT_SERVIDORES + "/", "");
+				System.out.println("Mi ID es: " + idServer);
+				zk.getChildren(ROOT_SERVIDORES,  watcherServidores);
+				
 				selectLeader();
 			} catch (KeeperException e) {
 				System.out.println("The session with Zookeeper failes. Closing");
@@ -219,6 +219,7 @@ public class Servidor {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_SERVIDORES,  watcherServidores); //this);
 					printList(list, "servidores");
+					selectLeader();
 					
 				} catch (Exception e) {
 					System.out.println("Exception: wacherServidores");
@@ -277,6 +278,7 @@ public class Servidor {
 			String path = null;
 			String data = "";
 			Object[] opCola= new Object[2];
+			
 			while (nCola > 0) {
 				try {
 					listCola = zk.getChildren(ROOT_COLA, false, s); 
@@ -311,8 +313,7 @@ public class Servidor {
 	                    //data = buffer.getInt();
 						data = Arrays.toString(b);
 						
-	                    opCola[0]=s;
-						opCola[1]=data;
+	                    doAction(data);
 	                    nCola--;
 	              
 	                    
@@ -408,7 +409,7 @@ public class Servidor {
 	
 	
 	private void createServerZk () throws KeeperException, InterruptedException {
-		createServer(idServer);
+		createServer();
 	}
 
 	private void doAction(String resp) throws UnsupportedEncodingException {
@@ -428,14 +429,14 @@ public class Servidor {
 		
 		
 		
-		idLeader = getLeader().split("-")[1];
+		//idLeader = getLeader().split("-")[1];
 		try {
 			switch (action) {
 			case "create":
 				JSONObject cliente = generateClient(values);
 				byte[] clientByte = cliente.toString().getBytes("utf-8");
 				
-				if(idServer.equals(idLeader)) {
+				if(idServer.equals(leader)) {
 					String comprob = values.split(";")[2];
 					boolean comp= actionsDB.comprobarUpdate(comprob);
 					if(comp) {
@@ -464,7 +465,7 @@ public class Servidor {
 				String updateArray[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
 				System.out.println("entramos en updateSaldo");
 			
-				if(idServer.equals(idLeader)) {
+				if(idServer.equals(leader)) {
 					System.out.println("es lider: ");
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
@@ -492,7 +493,7 @@ public class Servidor {
 				valorComprobar = values.split(";")[1];
 				String updateArrayN[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
 				
-				if(idServer.equals(idLeader)) {
+				if(idServer.equals(leader)) {
 					System.out.println("es lider: ");
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
@@ -519,7 +520,7 @@ public class Servidor {
 				campoComprobar = values.split(";")[0];
 				valorComprobar = values.split(";")[1];
 				String updateArrayC[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
-				if(idServer.equals(idLeader)) {
+				if(idServer.equals(leader)) {
 					System.out.println("es lider: ");
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
@@ -567,7 +568,7 @@ public class Servidor {
 			case "delete":
 				
 				valorComprobar = values;
-				if(idServer.equals(idLeader)) {
+				if(idServer.equals(leader)) {
 					System.out.println("es lider: ");
 					boolean compr= actionsDB.comprobarUpdate(valorComprobar);
 					if(compr) {
@@ -602,22 +603,26 @@ public class Servidor {
 		
 		//ZkService zks = new ZkService();
 		Servidor serv = new Servidor();
-		serv.idServer=args[0];
+		
 		serv.ZkService();
 		serv.interfaceCli = new InterfaceCli(serv.idServer);
-		serv.actionsDB = new ActionsDB(serv.idServer);
 		
-		serv.ruta="/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+serv.idServer+".json";
+		
 		
 		try {
 			serv.createServerZk();
+			serv.idBBDD = serv.idServer.split("-")[1];
+			
+			serv.ruta="/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+serv.idBBDD+".json";
+			
 			//resp meter: accion:datos y filtrar por acción
 			//dentro de datos campo;nombre para generar de forma generica
 			
+			serv.actionsDB = new ActionsDB(serv.idBBDD);
 			serv.createDB(serv.ruta);
 			serv.resp = serv.interfaceCli.interface_cli();
 			
-			if(serv.idServer.equals(serv.idLeader)) {
+			if(serv.idServer.equals(serv.leader)) {
 				serv.produceCola();
 			}else {
 				serv.produceOperations();
