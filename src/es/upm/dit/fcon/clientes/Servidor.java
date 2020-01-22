@@ -15,6 +15,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -263,7 +264,90 @@ public class Servidor {
 			}
 			System.out.println();
 		}
+
 		
+		
+		
+		////////////////////////////////////////////////////////////////////////////////////
+		///////////////////FUNCIONES REPLICACION DE ZKSERVICES.JAVA/////////////////////////
+		////////////////////////////////////////////////////////////////////////////////////
+		
+		public void produceCola() {
+			Stat s = null;
+			String path = null;
+			String data = "";
+			Object[] opCola= new Object[2];
+			while (nCola > 0) {
+				try {
+					listCola = zk.getChildren(ROOT_COLA, false, s); 
+				} catch (Exception e) {
+					System.out.println("Unexpected Exception process barrier");
+					break;
+				}
+				if (listCola.size() > 0) {
+					try {
+						//System.out.println(listProducts.get(0));
+						path = ROOT_COLA+"/"+listCola.get(0);
+						//System.out.println(path);
+						byte[] b = zk.getData(path, false, s);
+						s = zk.exists(path, false);
+						
+						//System.out.println(s.getVersion());
+						zk.delete(path, s.getVersion());
+						
+						// Generate random delay
+						Random rand = new Random();
+						int r = rand.nextInt(10);
+						// Loop for rand iterations
+						for (int j = 0; j < r; j++) {
+							try {
+								Thread.sleep(100);
+							} catch (InterruptedException e) {
+
+							}
+						}
+						
+	                    //ByteBuffer buffer = ByteBuffer.wrap(b);
+	                    //data = buffer.getInt();
+						data = Arrays.toString(b);
+						
+	                    opCola[0]=s;
+						opCola[1]=data;
+	                    nCola--;
+	              
+	                    
+	                    //System.out.println("++++ Produce. Data: " + data + "; Path: " + path + "; Number of products: " + nProducts);
+					} catch (Exception e) {
+						// The exception due to a race while getting the list of children, get data and delete. Another
+						// consumer may have deleted a child while the previous access. Then, the exception is simply
+						// implies that the data has not been produced.
+						System.out.println("Exception when accessing the data");
+						//System.err.println(e);
+						//e.printStackTrace();
+						//break;
+					}
+					
+				} else {
+					try {
+						zk.getChildren(ROOT_COLA, watcherCola, s);
+						synchronized(mutex) {
+							mutex.wait();
+						}
+					} catch (Exception e) {
+						System.out.println("Unexpected Exception process barrier");
+						break;
+					}
+				}
+			
+			
+		}
+			
+		}
+		
+		private void produceOperations() {
+			// TODO Auto-generated method stub
+			
+		}
 		
 		////////////////////////////////////////////////////////////////////////////////////
 		///////////////////FUNCIONES ANTERIORES DE SERVIDOR.JAVA////////////////////////////
@@ -358,15 +442,16 @@ public class Servidor {
 						System.out.println("Ya existe un cliente con ese numero de cuenta");
 						resp = interfaceCli.interface_cli();
 					}else {
-						addOperation(action, clientByte);
+						byte [] respBytes = resp.getBytes("utf-8");
+						addOperation(action, respBytes);
 						createClient(cliente);
 						resp = interfaceCli.interface_cli();
 					}
 					
 					
 				}else {
-					
-					addOpQueue(action, clientByte);
+					byte [] respBytes = resp.getBytes("utf-8");
+					addOpQueue(action, respBytes);
 					resp = interfaceCli.interface_cli();
 				}
 				
@@ -383,7 +468,8 @@ public class Servidor {
 					System.out.println("es lider: ");
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
-						addOperation(action, updateByte);
+						byte [] respBytes = resp.getBytes("utf-8");
+						addOperation(action, respBytes);
 						actionsDB.update(updateArray);
 						resp = interfaceCli.interface_cli();
 					}else {
@@ -394,8 +480,8 @@ public class Servidor {
 					
 					
 				}else {
-					
-					addOpQueue(action, updateByte);
+					byte [] respBytes = resp.getBytes("utf-8");
+					addOpQueue(action, respBytes);
 					resp = interfaceCli.interface_cli();
 				}
 			case "updateNombre":
@@ -421,8 +507,8 @@ public class Servidor {
 					
 					
 				}else {
-					
-					addOpQueue(action, updateByte);
+					byte [] respBytes = resp.getBytes("utf-8");
+					addOpQueue(action, respBytes);
 					resp = interfaceCli.interface_cli();
 				}
 			case "updateCuenta":
@@ -437,7 +523,8 @@ public class Servidor {
 					System.out.println("es lider: ");
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
-						addOperation(action, updateByte);
+						byte [] respBytes = resp.getBytes("utf-8");
+						addOperation(action, respBytes);
 						actionsDB.update(updateArrayC);
 						
 						resp = interfaceCli.interface_cli();
@@ -449,8 +536,8 @@ public class Servidor {
 					
 					
 				}else {
-					
-					addOpQueue(action, updateByte);
+					byte [] respBytes = resp.getBytes("utf-8");
+					addOpQueue(action, respBytes);
 					resp = interfaceCli.interface_cli();
 				}
 			case "read":
@@ -484,7 +571,8 @@ public class Servidor {
 					System.out.println("es lider: ");
 					boolean compr= actionsDB.comprobarUpdate(valorComprobar);
 					if(compr) {
-						addOperation(action, updateByte);
+						byte [] respBytes = resp.getBytes("utf-8");
+						addOperation(action, respBytes);
 						org.json.JSONObject client = actionsDB.deleteClient(valorComprobar);
 						System.out.println("El cliente eliminado ha sido: ");
 						System.out.println(client);
@@ -497,8 +585,8 @@ public class Servidor {
 					
 					
 				}else {
-					
-					addOpQueue(action, updateByte);
+					byte [] respBytes = resp.getBytes("utf-8");
+					addOpQueue(action, respBytes);
 					resp = interfaceCli.interface_cli();
 				}
 				
@@ -529,6 +617,11 @@ public class Servidor {
 			serv.createDB(serv.ruta);
 			serv.resp = serv.interfaceCli.interface_cli();
 			
+			if(serv.idServer.equals(serv.idLeader)) {
+				serv.produceCola();
+			}else {
+				serv.produceOperations();
+			}
 			
 			serv.doAction(serv.resp);
 			System.out.print("La respuesta ha sido: " + serv.resp);
@@ -539,4 +632,6 @@ public class Servidor {
 			return;
 		}
 	}
+
+	
 }
