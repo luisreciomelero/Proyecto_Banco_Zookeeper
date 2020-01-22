@@ -1,6 +1,7 @@
 package es.upm.dit.fcon.banco_zk;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -20,12 +21,18 @@ public class ZkService implements Watcher{
 
 	
 	private static final int SESSION_TIMEOUT = 5000;
+	private Integer mutex        = -1;
 
 	private static final String ROOT_OPERACIONES = "/operaciones";
 	private static final String ROOT_SERVIDORES = "/servidores";
 	private static final String ROOT_COLA = "/cola";
 	private static String myId;
 	private static String leader;
+	private int nCola = 0;
+	private int nOperations = 0;
+	private List<String> listCola = null;
+	private List<String> listOperations = null;
+	
 	
 	
 	
@@ -58,7 +65,9 @@ public class ZkService implements Watcher{
 				zk = new ZooKeeper(hosts[i], SESSION_TIMEOUT, sessionWatcher);
 				try {
 					// Wait for creating the session. Use the object lock
-					wait();
+					synchronized(mutex) {
+						mutex.wait();
+					}
 					//zk.exists("/",false);
 				} catch (Exception e) {
 					// TODO: handle exception
@@ -73,11 +82,11 @@ public class ZkService implements Watcher{
 				
 				// Create a folder, if it is not created
 				String operaciones = new String();
-				Stat o = zk.exists(ROOT_OPERACIONES, watcherOperaciones); //this);
+				Stat o = zk.exists(ROOT_OPERACIONES, false); //this);
 				String servidores = new String();
-				Stat s = zk.exists(ROOT_SERVIDORES, watcherServidores); //this);
+				Stat s = zk.exists(ROOT_SERVIDORES, false); //this);
 				String cola = new String();
-				Stat c = zk.exists(ROOT_COLA, watcherCola); //this);
+				Stat c = zk.exists(ROOT_COLA, false); //this);
 				
 				if (o == null) {
 					// Created the znode, if it is not created.
@@ -144,11 +153,13 @@ public class ZkService implements Watcher{
 	public void addOperation(String action, byte[] clientByte) throws KeeperException, InterruptedException {
 		
 		zk.create(ROOT_OPERACIONES + "/"+ action +"-", clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
+		nOperations++;
 	}
 	
 	public void addOpQueue(String action, byte[] clientByte) throws KeeperException, InterruptedException {
 		
 		zk.create(ROOT_COLA + "/"+ action + "-" , clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
+		nCola++;
 			
 		
 	}
@@ -236,6 +247,76 @@ public class ZkService implements Watcher{
 		System.out.println();
 	}
 	
+	public Object[] productCola() {
+		Stat s = null;
+		String path = null;
+		String data = "";
+		Object[] opCola= new Object[2];
+		while (nCola > 0) {
+			try {
+				listCola = zk.getChildren(ROOT_COLA, false, s); 
+			} catch (Exception e) {
+				System.out.println("Unexpected Exception process barrier");
+				break;
+			}
+			if (listCola.size() > 0) {
+				try {
+					//System.out.println(listProducts.get(0));
+					path = ROOT_COLA+"/"+listCola.get(0);
+					//System.out.println(path);
+					byte[] b = zk.getData(path, false, s);
+					s = zk.exists(path, false);
+					
+					//System.out.println(s.getVersion());
+					zk.delete(path, s.getVersion());
+					
+					// Generate random delay
+					Random rand = new Random();
+					int r = rand.nextInt(10);
+					// Loop for rand iterations
+					for (int j = 0; j < r; j++) {
+						try {
+							Thread.sleep(100);
+						} catch (InterruptedException e) {
+
+						}
+					}
+					
+                    //ByteBuffer buffer = ByteBuffer.wrap(b);
+                    //data = buffer.getInt();
+					data = Arrays.toString(b);
+                    opCola[0]=s;
+					opCola[1]=data;
+                    nCola--;
+              
+                    return opCola;
+                    //System.out.println("++++ Produce. Data: " + data + "; Path: " + path + "; Number of products: " + nProducts);
+				} catch (Exception e) {
+					// The exception due to a race while getting the list of children, get data and delete. Another
+					// consumer may have deleted a child while the previous access. Then, the exception is simply
+					// implies that the data has not been produced.
+					System.out.println("Exception when accessing the data");
+					//System.err.println(e);
+					//e.printStackTrace();
+					//break;
+				}
+				
+			} else {
+				try {
+					zk.getChildren(ROOT_COLA, watcherCola, s);
+					synchronized(mutex) {
+						mutex.wait();
+					}
+				} catch (Exception e) {
+					System.out.println("Unexpected Exception process barrier");
+					break;
+				}
+			}
+		return null;
+		
+	}
+		return opCola;
+	}
 	
 	public static void main(String[] args) {
 		//Declaramos las acciones permitidas por las aplicaciones
