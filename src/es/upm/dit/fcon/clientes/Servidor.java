@@ -15,11 +15,15 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.InputMismatchException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.Scanner;
 
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -37,7 +41,7 @@ public class Servidor {
 	private  InterfaceCli interfaceCli;
 	private  ActionsDB actionsDB;
 	private  String idLeader;
-	private  String resp;
+	private  String resp="";
 	
 	
 	private static final int SESSION_TIMEOUT = 5000;
@@ -104,10 +108,12 @@ public class Servidor {
 					String cola = new String();
 					Stat c = zk.exists(ROOT_COLA, false); //this);
 					
+					
 					if (o == null) {
 						// Created the znode, if it is not created.
 						operaciones = zk.create(ROOT_OPERACIONES, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 						System.out.println("Response rootOperaciones: " + operaciones);
+						//zk.getChildren(ROOT_OPERACIONES, watcherOperaciones);
 					}
 					if (s == null) {
 						// Created the znode, if it is not created.
@@ -118,6 +124,7 @@ public class Servidor {
 						// Created the znode, if it is not created.
 						cola = zk.create(ROOT_COLA, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 						System.out.println("Response rootCola: " + cola);
+						zk.getChildren(ROOT_COLA, watcherCola);
 					}
 					
 					
@@ -155,6 +162,7 @@ public class Servidor {
 				System.out.println("Mi ID es: " + idServer);
 				zk.getChildren(ROOT_SERVIDORES,  watcherServidores);
 				
+				
 				selectLeader();
 			} catch (KeeperException e) {
 				System.out.println("The session with Zookeeper failes. Closing");
@@ -176,9 +184,9 @@ public class Servidor {
 		}
 		
 		public void addOpQueue(String action, byte[] clientByte) throws KeeperException, InterruptedException {
-			
-			zk.create(ROOT_COLA + "/"+ action + "-" , clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
 			nCola++;
+			zk.create(ROOT_COLA + "/"+ action + "-" , clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
+			
 				
 			
 		}
@@ -204,8 +212,9 @@ public class Servidor {
 				System.out.println("------------------Watcher Operaciones------------------\n");		
 				try {
 					System.out.println("        Update!!");
-					List<String> list = zk.getChildren(ROOT_OPERACIONES,  watcherOperaciones); //this);
+					List<String> list = zk.getChildren(ROOT_OPERACIONES,  false); //this);
 					printList(list, "operaciones");
+					//produceOperations();
 					
 				} catch (Exception e) {
 					System.out.println("Exception: wacherOperaciones");
@@ -232,8 +241,9 @@ public class Servidor {
 				System.out.println("------------------Watcher Cola------------------\n");		
 				try {
 					System.out.println("        Update!!");
-					List<String> list = zk.getChildren(ROOT_COLA,  watcherCola); //this);
+					List<String> list = zk.getChildren(ROOT_COLA,  false); //this);
 					printList(list, "cola");
+					produceCola();
 					
 				} catch (Exception e) {
 					System.out.println("Exception: wacherCola");
@@ -279,75 +289,123 @@ public class Servidor {
 			String data = "";
 			Object[] opCola= new Object[2];
 			
-			while (nCola > 0) {
-				try {
-					listCola = zk.getChildren(ROOT_COLA, false, s); 
-				} catch (Exception e) {
-					System.out.println("Unexpected Exception process barrier");
-					break;
-				}
-				if (listCola.size() > 0) {
+			try {
+				listCola = zk.getChildren(ROOT_COLA, false, s); 
+			} catch (Exception e) {
+				System.out.println("Unexpected Exception process barrier");
+			}
+	
+			try {
+				//System.out.println(listProducts.get(0));
+				path = ROOT_COLA+"/"+listCola.get(0);
+				//System.out.println(path);
+				byte[] b = zk.getData(path, false, s);
+				s = zk.exists(path, false);
+				
+				//System.out.println(s.getVersion());
+				zk.delete(path, s.getVersion());
+				
+				// Generate random delay
+				Random rand = new Random();
+				int r = rand.nextInt(10);
+				// Loop for rand iterations
+				for (int j = 0; j < r; j++) {
 					try {
-						//System.out.println(listProducts.get(0));
-						path = ROOT_COLA+"/"+listCola.get(0);
-						//System.out.println(path);
-						byte[] b = zk.getData(path, false, s);
-						s = zk.exists(path, false);
-						
-						//System.out.println(s.getVersion());
-						zk.delete(path, s.getVersion());
-						
-						// Generate random delay
-						Random rand = new Random();
-						int r = rand.nextInt(10);
-						// Loop for rand iterations
-						for (int j = 0; j < r; j++) {
-							try {
-								Thread.sleep(100);
-							} catch (InterruptedException e) {
+						Thread.sleep(100);
+					} catch (InterruptedException e) {
 
-							}
-						}
-						
-	                    //ByteBuffer buffer = ByteBuffer.wrap(b);
-	                    //data = buffer.getInt();
-						data = Arrays.toString(b);
-						
-	                    doAction(data);
-	                    nCola--;
-	              
-	                    
-	                    //System.out.println("++++ Produce. Data: " + data + "; Path: " + path + "; Number of products: " + nProducts);
-					} catch (Exception e) {
-						// The exception due to a race while getting the list of children, get data and delete. Another
-						// consumer may have deleted a child while the previous access. Then, the exception is simply
-						// implies that the data has not been produced.
-						System.out.println("Exception when accessing the data");
-						//System.err.println(e);
-						//e.printStackTrace();
-						//break;
-					}
-					
-				} else {
-					try {
-						zk.getChildren(ROOT_COLA, watcherCola, s);
-						synchronized(mutex) {
-							mutex.wait();
-						}
-					} catch (Exception e) {
-						System.out.println("Unexpected Exception process barrier");
-						break;
 					}
 				}
-			
-			
-		}
+				zk.getChildren(ROOT_COLA, watcherCola, s); 
+                //ByteBuffer buffer = ByteBuffer.wrap(b);
+                //data = buffer.getInt();
+				Charset charset = Charset.forName("ISO-8859-1");
+				ByteBuffer buffer = ByteBuffer.wrap(b);
+				data=charset.decode(buffer).toString();
+				//data = Arrays.toString(buffer.array());
+				
+				
+                doAction(data);
+                
+          
+                
+                //System.out.println("++++ Produce. Data: " + data + "; Path: " + path + "; Number of products: " + nProducts);
+			} catch (Exception e) {
+				// The exception due to a race while getting the list of children, get data and delete. Another
+				// consumer may have deleted a child while the previous access. Then, the exception is simply
+				// implies that the data has not been produced.
+				System.out.println("Exception when accessing the data");
+				
+				//System.err.println(e);
+				//e.printStackTrace();
+				//break;
+			}
 			
 		}
 		
 		private void produceOperations() {
-			// TODO Auto-generated method stub
+			Stat s = null;
+			String path = null;
+			String data = "";
+			//Object[] opCola= new Object[2];
 			
+			try {
+				listOperations = zk.getChildren(ROOT_OPERACIONES, false, s); 
+			} catch (Exception e) {
+				System.out.println("Unexpected Exception process barrier");
+			}
+	
+			try {
+				//System.out.println(listProducts.get(0));
+				path = ROOT_OPERACIONES+"/"+listOperations.get(0);
+				//System.out.println(path);
+				byte[] b = zk.getData(path, false, s);
+				s = zk.exists(path, false);
+				
+				//System.out.println(s.getVersion());
+				//zk.delete(path, s.getVersion());
+				createZnodeRepOp(path);
+				
+				// Generate random delay
+				Random rand = new Random();
+				int r = rand.nextInt(10);
+				// Loop for rand iterations
+				for (int j = 0; j < r; j++) {
+					try {
+						Thread.sleep(100);
+					} catch (InterruptedException e) {
+
+					}
+				}
+				zk.getChildren(ROOT_OPERACIONES, watcherOperaciones, s); 
+                //ByteBuffer buffer = ByteBuffer.wrap(b);
+                //data = buffer.getInt();
+				Charset charset = Charset.forName("ISO-8859-1");
+				ByteBuffer buffer = ByteBuffer.wrap(b);
+				data=charset.decode(buffer).toString();
+				//data = Arrays.toString(buffer.array());
+				
+				
+				doActionSlave(data);
+                
+          
+                
+                //System.out.println("++++ Produce. Data: " + data + "; Path: " + path + "; Number of products: " + nProducts);
+			} catch (Exception e) {
+				// The exception due to a race while getting the list of children, get data and delete. Another
+				// consumer may have deleted a child while the previous access. Then, the exception is simply
+				// implies that the data has not been produced.
+				System.out.println("Exception when accessing the data");
+				
+				//System.err.println(e);
+				//e.printStackTrace();
+				//break;
+			}
+			
+		}
+		
+		public void createZnodeRepOp(String path) throws KeeperException, InterruptedException {
+			zk.create(path + "/"+idServer, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
 		}
 		
 		////////////////////////////////////////////////////////////////////////////////////
@@ -441,19 +499,19 @@ public class Servidor {
 					boolean comp= actionsDB.comprobarUpdate(comprob);
 					if(comp) {
 						System.out.println("Ya existe un cliente con ese numero de cuenta");
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 					}else {
 						byte [] respBytes = resp.getBytes("utf-8");
 						addOperation(action, respBytes);
 						createClient(cliente);
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 					}
 					
 					
 				}else {
 					byte [] respBytes = resp.getBytes("utf-8");
 					addOpQueue(action, respBytes);
-					resp = interfaceCli.interface_cli();
+					//resp = interfaceCli.interface_cli();
 				}
 				
 				break;
@@ -472,10 +530,10 @@ public class Servidor {
 						byte [] respBytes = resp.getBytes("utf-8");
 						addOperation(action, respBytes);
 						actionsDB.update(updateArray);
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 						
 					}
 					
@@ -483,7 +541,7 @@ public class Servidor {
 				}else {
 					byte [] respBytes = resp.getBytes("utf-8");
 					addOpQueue(action, respBytes);
-					resp = interfaceCli.interface_cli();
+					//resp = interfaceCli.interface_cli();
 				}
 			case "updateNombre":
 				System.out.println("entramos en updateNombre");
@@ -500,17 +558,17 @@ public class Servidor {
 						addOperation(action, updateByte);
 						actionsDB.update(updateArrayN);
 						
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 					}
 					
 					
 				}else {
 					byte [] respBytes = resp.getBytes("utf-8");
 					addOpQueue(action, respBytes);
-					resp = interfaceCli.interface_cli();
+					//resp = interfaceCli.interface_cli();
 				}
 			case "updateCuenta":
 				System.out.println("entramos en updateCuenta");
@@ -528,10 +586,10 @@ public class Servidor {
 						addOperation(action, respBytes);
 						actionsDB.update(updateArrayC);
 						
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 						
 					}
 					
@@ -539,7 +597,7 @@ public class Servidor {
 				}else {
 					byte [] respBytes = resp.getBytes("utf-8");
 					addOpQueue(action, respBytes);
-					resp = interfaceCli.interface_cli();
+					//resp = interfaceCli.interface_cli();
 				}
 			case "read":
 				System.out.println("entramos en read");
@@ -551,10 +609,10 @@ public class Servidor {
 					System.out.println("El cliente que se corresponde con este id es: ");
 					System.out.println(client);
 					
-					resp = interfaceCli.interface_cli();
+					//resp = interfaceCli.interface_cli();
 				}else {
 					System.out.println("No existe ningun cliente con ese número de cuenta");
-					resp = interfaceCli.interface_cli();
+					//resp = interfaceCli.interface_cli();
 					
 				}
 					
@@ -563,7 +621,7 @@ public class Servidor {
 				org.json.JSONArray clients = actionsDB.readAllClient();
 				System.out.println("Los clientes registrados son: ");
 				System.out.println(clients);
-				resp = interfaceCli.interface_cli();
+				//resp = interfaceCli.interface_cli();
 				
 			case "delete":
 				
@@ -577,10 +635,10 @@ public class Servidor {
 						org.json.JSONObject client = actionsDB.deleteClient(valorComprobar);
 						System.out.println("El cliente eliminado ha sido: ");
 						System.out.println(client);
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
-						resp = interfaceCli.interface_cli();
+						//resp = interfaceCli.interface_cli();
 						
 					}
 					
@@ -588,7 +646,7 @@ public class Servidor {
 				}else {
 					byte [] respBytes = resp.getBytes("utf-8");
 					addOpQueue(action, respBytes);
-					resp = interfaceCli.interface_cli();
+					//resp = interfaceCli.interface_cli();
 				}
 				
 			default:
@@ -598,6 +656,280 @@ public class Servidor {
 			
 		}
 	}
+	
+	private void doActionSlave(String resp) throws UnsupportedEncodingException {
+		String[] data = resp.split(":");
+		String action = data[0];
+		String values = data[1];
+		System.out.println("la accion será: ");
+		System.out.println(action);
+		System.out.println("valores: ");
+		System.out.println(values);
+		byte[] updateByte = values.getBytes("utf-8");
+		//String sustituir = "\""+values.split(";")[2]+"\":\""+values.split(";")[3]+"\"";
+		String campoSustituir = "";
+		String valorSustituir = "";
+		String campoComprobar = "";
+		String valorComprobar = "";
+		
+		
+		
+		//idLeader = getLeader().split("-")[1];
+		try {
+			switch (action) {
+			case "create":
+				JSONObject cliente = generateClient(values);
+				byte[] clientByte = cliente.toString().getBytes("utf-8");
+				
+				if(!idServer.equals(leader)) {
+					String comprob = values.split(";")[2];
+					boolean comp= actionsDB.comprobarUpdate(comprob);
+					if(comp) {
+						System.out.println("Ya existe un cliente con ese numero de cuenta");
+						//resp = interfaceCli.interface_cli();
+					}else {
+						byte [] respBytes = resp.getBytes("utf-8");
+						createClient(cliente);
+						//resp = interfaceCli.interface_cli();
+					}
+					
+					
+				}
+				
+				break;
+			case "updateSaldo":
+				campoSustituir = values.split(";")[2];
+				valorSustituir = values.split(";")[3];
+				campoComprobar = values.split(";")[0];
+				valorComprobar = values.split(";")[1];
+				String updateArray[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
+				System.out.println("entramos en updateSaldo");
+			
+				if(!idServer.equals(leader)) {
+					System.out.println("es lider: ");
+					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
+					if(comp) {
+						byte [] respBytes = resp.getBytes("utf-8");
+						
+						actionsDB.update(updateArray);
+						//resp = interfaceCli.interface_cli();
+					}else {
+						System.out.println("No existe ningun cliente con ese número de cuenta");
+						//resp = interfaceCli.interface_cli();
+						
+					}
+					}
+					
+			case "updateNombre":
+				System.out.println("entramos en updateNombre");
+				campoSustituir = values.split(";")[2];
+				valorSustituir = values.split(";")[3];
+				campoComprobar = values.split(";")[0];
+				valorComprobar = values.split(";")[1];
+				String updateArrayN[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
+				
+				if(!idServer.equals(leader)) {
+					System.out.println("es lider: ");
+					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
+					if(comp) {
+						actionsDB.update(updateArrayN);
+						
+						//resp = interfaceCli.interface_cli();
+					}else {
+						System.out.println("No existe ningun cliente con ese número de cuenta");
+						//resp = interfaceCli.interface_cli();
+					}
+				}
+			case "updateCuenta":
+				System.out.println("entramos en updateCuenta");
+				
+				campoSustituir = values.split(";")[2];
+				valorSustituir = values.split(";")[3];
+				campoComprobar = values.split(";")[0];
+				valorComprobar = values.split(";")[1];
+				String updateArrayC[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
+				if(!idServer.equals(leader)) {
+					System.out.println("es lider: ");
+					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
+					if(comp) {
+						byte [] respBytes = resp.getBytes("utf-8");
+						
+						actionsDB.update(updateArrayC);
+						
+						//resp = interfaceCli.interface_cli();
+					}else {
+						System.out.println("No existe ningun cliente con ese número de cuenta");
+						//resp = interfaceCli.interface_cli();
+						
+					}
+				}
+			case "read":
+				System.out.println("entramos en read");
+				valorComprobar = values;
+				
+				boolean comp= actionsDB.comprobarUpdate(valorComprobar);
+				if(comp) {
+					org.json.JSONObject client = actionsDB.readClient(valorComprobar);
+					System.out.println("El cliente que se corresponde con este id es: ");
+					System.out.println(client);
+					
+					//resp = interfaceCli.interface_cli();
+				}else {
+					System.out.println("No existe ningun cliente con ese número de cuenta");
+					//resp = interfaceCli.interface_cli();
+					
+				}
+					
+			case "readAll":
+				System.out.println("entramos en readAll");
+				org.json.JSONArray clients = actionsDB.readAllClient();
+				System.out.println("Los clientes registrados son: ");
+				System.out.println(clients);
+				//resp = interfaceCli.interface_cli();
+				
+			case "delete":
+				
+				valorComprobar = values;
+				if(!idServer.equals(leader)) {
+					System.out.println("es lider: ");
+					boolean compr= actionsDB.comprobarUpdate(valorComprobar);
+					if(compr) {
+						byte [] respBytes = resp.getBytes("utf-8");
+						org.json.JSONObject client = actionsDB.deleteClient(valorComprobar);
+						System.out.println("El cliente eliminado ha sido: ");
+						System.out.println(client);
+						//resp = interfaceCli.interface_cli();
+					}else {
+						System.out.println("No existe ningun cliente con ese número de cuenta");
+						//resp = interfaceCli.interface_cli();
+						
+					}
+				}
+				
+			default:
+				break;
+			}
+		}catch(Exception e) {
+			
+		}
+	}
+	
+	public void interface_cli() throws UnsupportedEncodingException {
+		
+		Scanner sn = new Scanner(System.in);
+        boolean salir = false;
+        String opcion; //Guardaremos la opcion del usuario
+        String actualizacion;
+        String idClient;
+        while (!salir) {
+        	System.out.println("Puede elegir entre: ");
+            System.out.println("1. Dar de alta a un cliente");
+            System.out.println("2. Actualizar informacion de un cliente");
+            System.out.println("3. Obtener información de un cliente");
+            System.out.println("4. Obtener el listado de clientes");
+            System.out.println("5. Dar de baja a un cliente");
+            System.out.println("6. Salir");
+ 
+            try {
+ 
+                System.out.println("Eliga la opcion que prefiera introduciendo su número");
+                opcion = sn.nextLine();
+                
+                switch (opcion) {
+                    case "1":
+                        System.out.println("Introduce los datos del cliente");
+                        Scanner c1 = new Scanner(System.in);
+                        try {
+                        	System.out.println("Nombre:");
+                        	String name = c1.nextLine();
+                        	System.out.println("Numero de cuenta:");
+                        	int cuenta = c1.nextInt();
+                        	System.out.println("Saldo en euros");
+                        	int saldo = c1.nextInt();
+                        	System.out.println("El cliente tendra el nombre: "+ name+" con un saldo de: " + saldo+ " en la cuenta: "+ cuenta);
+                        	resp = ""+"create:"+name+";"+saldo+";"+cuenta;
+                        	doAction(resp);
+                        }catch (Exception e) {
+                        	System.out.println("Ha ocurrido un error");
+        	                
+        	            }
+                                               
+                        break;
+                    case "2":
+                        System.out.println("Has seleccionado la opcion Actualizar cuenta");
+                        Scanner s2 = new Scanner(System.in);
+                        System.out.println("Introduce la el número de cuenta a actualizar");
+                        idClient=s2.nextLine();
+                        System.out.println("1. Modificar su saldo");
+                        System.out.println("2. Modificar su numero de cuenta");
+                        System.out.println("3. Modificar su propietario");
+                        try {
+                        	actualizacion = s2.nextLine();
+                        	switch(actualizacion) {
+                        		case "1":
+                        			System.out.println("Introduza el nuevo saldo en euros");
+                        			Scanner s3 = new Scanner(System.in);
+                        			int nuevoSaldo = s3.nextInt();
+                        			System.out.println("El nuevo saldo sera: " + nuevoSaldo + "€");
+                        			resp=""+"updateSaldo:"+"Ncuenta;"+idClient+";"+"saldo;"+nuevoSaldo;
+                        			doAction(resp);
+                        			
+                        		case "2":
+                        			System.out.println("Introduza el nuevo numero de cuenta");
+                        			Scanner s4 = new Scanner(System.in);
+                        			int nuevoNumero = s4.nextInt();
+                        			System.out.println("El nuevo numero de cuenta sera: " + nuevoNumero);
+                        			resp=""+"updateCuenta:"+"Ncuenta;"+idClient+";"+"Ncuenta;"+nuevoNumero;
+                        			doAction(resp);
+                        		case "3":
+                        			System.out.println("Introduza el nuevo nombre del propietario");
+                        			Scanner s5 = new Scanner(System.in);
+                        			String nuevoPropietario = s5.next();
+                        			System.out.println("El nuevo propietario sera: " + nuevoPropietario);
+                        			resp=""+"updateNombre:"+"Ncuenta;"+idClient+";"+"name;"+nuevoPropietario;
+                        			doAction(resp);
+                 
+                        	}
+                        	
+                        }catch (Exception e) {
+                        	System.out.println("Ha ocurrido un error");
+                        	
+        	                salir=true;
+        	            }
+                        break;
+                    case "3":
+                        System.out.println("Introduzca el numero de cuenta a consultar: ");
+                        Scanner c2 = new Scanner(System.in);
+                        int consultaC = c2.nextInt();
+                        System.out.println("Obteniendo datos de la cuenta: " +consultaC + " ...");
+                        resp=""+"read:"+consultaC;
+                        doAction(resp);
+                    case "4":
+                        System.out.println("Obteniendo el listado de clientes...");
+                        resp=""+"readAll: ";
+                        doAction(resp);
+                    case "5":
+                    	System.out.println("Introduzca el numero de cuenta a eliminar: ");
+                    	Scanner c3 = new Scanner(System.in);
+                        int eliminarC = c3.nextInt();
+                        System.out.println("Se eliminará la cuenta: " +eliminarC);
+                        resp=""+"delete:"+eliminarC;
+                        doAction(resp);
+                    case "6":
+                    	System.out.println("Cancelando operaciones " );
+                    	salir = true;
+                        
+                    default:
+                        System.out.println("Solo números entre 1 y 6");
+                        
+                }
+            } catch (InputMismatchException e) {
+                System.out.println("Debes insertar un número");
+                sn.next();
+            }
+        }
+		
+	}
 		
 	public static void main(String[] args){
 		
@@ -605,38 +937,36 @@ public class Servidor {
 		Servidor serv = new Servidor();
 		
 		serv.ZkService();
-		serv.interfaceCli = new InterfaceCli(serv.idServer);
+		//serv.interfaceCli = new InterfaceCli(serv.idServer);
 		
 		
-		
-		try {
-			serv.createServerZk();
-			serv.idBBDD = serv.idServer.split("-")[1];
-			
-			serv.ruta="/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+serv.idBBDD+".json";
-			
-			//resp meter: accion:datos y filtrar por acción
-			//dentro de datos campo;nombre para generar de forma generica
-			
-			serv.actionsDB = new ActionsDB(serv.idBBDD);
-			serv.createDB(serv.ruta);
-			serv.resp = serv.interfaceCli.interface_cli();
-			
-			if(serv.idServer.equals(serv.leader)) {
-				serv.produceCola();
-			}else {
-				serv.produceOperations();
+			try {
+				serv.createServerZk();
+				serv.idBBDD = serv.idServer.split("-")[1];
+				
+				serv.ruta="/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+serv.idBBDD+".json";
+				
+				//resp meter: accion:datos y filtrar por acción
+				//dentro de datos campo;nombre para generar de forma generica
+				
+				serv.actionsDB = new ActionsDB(serv.idBBDD);
+				serv.createDB(serv.ruta);
+				serv.interface_cli();
+				
+				
+				
+				serv.doAction(serv.resp);
+				System.out.print("La respuesta ha sido: " + serv.resp);
+				
+				
+			}catch (Exception e) {
+				System.out.println(e);
+				return;
 			}
-			
-			serv.doAction(serv.resp);
-			System.out.print("La respuesta ha sido: " + serv.resp);
-			
-			
-		}catch (Exception e) {
-			System.out.println(e);
-			return;
 		}
-	}
+		
+		
+	
 
 	
 }
