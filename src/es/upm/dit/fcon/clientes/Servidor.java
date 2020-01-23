@@ -40,7 +40,6 @@ public class Servidor {
 	private  String ruta ="";
 	private  String idBBDD ="";
 	//private static ZkService zk;
-	private  InterfaceCli interfaceCli;
 	private  ActionsDB actionsDB;
 	private  String idLeader;
 	private  String resp="";
@@ -279,8 +278,6 @@ public class Servidor {
 				System.out.println("------------------Watcher OpHijos------------------\n");		
 				try {
 					System.out.println("        Update!!");
-					System.out.println("lanzamos watcherOpHijo desde: ");
-					System.out.println(event.getPath());
 					List<String> list = zk.getChildren(event.getPath(),  false); //this);
 					printList(list);
 					produceOperationsHijo(event.getPath());
@@ -316,20 +313,19 @@ public class Servidor {
 			Object[] opCola= new Object[2];
 			
 			try {
-				//listCola = zk.getChildren(ROOT_COLA, watcherCola, s); 
+				 
 				listCola = zk.getChildren(ROOT_COLA, false, s); 
 			} catch (Exception e) {
 				System.out.println("Unexpected Exception process barrier");
 			}
 	
 			try {
-				//System.out.println(listProducts.get(0));
+				
 				path = ROOT_COLA+"/"+listCola.get(0);
-				//System.out.println(path);
 				byte[] b = zk.getData(path, false, s);
 				s = zk.exists(path, false);
 				
-				//System.out.println(s.getVersion());
+				
 				zk.delete(path, s.getVersion());
 				
 				// Generate random delay
@@ -371,8 +367,7 @@ public class Servidor {
 		}
 		
 		private void produceOperations() {
-			System.out.print("ENTRAMOS EN PRODUCEOPERATIONS, idServer: ");
-			System.out.print(idServer);
+			
 			Stat s = null;
 			String path = null;
 			String data = "";
@@ -388,10 +383,9 @@ public class Servidor {
 			try {
 				for (String op : listOperations) {
 					//System.out.println(listProducts.get(0));
-					System.out.println("Sin path: ");
+					
 					path = ROOT_OPERACIONES+"/"+op;
-					System.out.println("path: ");
-					System.out.println(path);
+					
 					//System.out.println(path);
 					byte[] b = zk.getData(path, false, s);
 					s = zk.exists(path, false);
@@ -449,14 +443,12 @@ public class Servidor {
 			for (String serverDone: listServDoneOp) {
 				listSlavePrueba.remove(serverDone);
 			}
-			System.out.println("listSlavePrueba QUEDA");
-			System.out.println(listSlavePrueba);
+			
 			
 			for (String serverSlave: listSlave) {
 				listServDoneOpPrueba.remove(serverSlave);
 			}
-			System.out.println("listServDoneOpPrueba QUEDA");
-			System.out.println(listServDoneOpPrueba);
+			
 			
 			if(listServDoneOpPrueba.size()==0 && listSlavePrueba.size()==0) {
 				conf=true;
@@ -466,22 +458,16 @@ public class Servidor {
 		}
 		
 		public void produceOperationsHijo(String path) {
-			System.out.print("ENTRAMOS EN PRODUCEOPERATIONSHIJO, idServer: ");
-			System.out.print(idServer);
+			
 			Stat s = null;
 			
 			
 			try {
 				listServDoneOp = zk.getChildren(path , false, s); 
 				listServers = zk.getChildren(ROOT_SERVIDORES, false);
-				System.out.println("Lista listServDoneOp: ");
-				System.out.println(listServDoneOp);
-				System.out.println("Lista listServers: ");
-				System.out.println(listServers);
 				listSlaves = zk.getChildren(ROOT_SERVIDORES, false);
 				listSlaves.remove(leader);
-				System.out.println("Lista listSlaves: ");
-				System.out.println(listSlaves);
+				
 				
 				if(equalsList(listServDoneOp,listSlaves)) {
 					for(String serverSlave: listServDoneOp) {
@@ -504,10 +490,7 @@ public class Servidor {
 		}
 		
 		public void createZnodeRepOp(String path) throws KeeperException, InterruptedException {
-			System.out.print("LLEGA PATH: ");
-			System.out.print(path);
-			System.out.print("LLEGA idServer: ");
-			System.out.print(idServer);
+			
 			zk.create(path + "/"+idServer, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 			
 			
@@ -589,10 +572,7 @@ public class Servidor {
 		String[] data = resp.split(":");
 		String action = data[0];
 		String values = data[1];
-		System.out.println("la accion será: ");
-		System.out.println(action);
-		System.out.println("valores: ");
-		System.out.println(values);
+		
 		byte[] updateByte = values.getBytes("utf-8");
 		//String sustituir = "\""+values.split(";")[2]+"\":\""+values.split(";")[3]+"\"";
 		String campoSustituir = "";
@@ -636,10 +616,10 @@ public class Servidor {
 				campoComprobar = values.split(";")[0];
 				valorComprobar = values.split(";")[1];
 				String updateArray[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
-				System.out.println("entramos en updateSaldo");
+				
 			
 				if(idServer.equals(leader)) {
-					System.out.println("es lider: ");
+					
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
 						byte [] respBytes = resp.getBytes("utf-8");
@@ -660,7 +640,7 @@ public class Servidor {
 				}
 				break;
 			case "updateNombre":
-				System.out.println("entramos en updateNombre");
+				
 				campoSustituir = values.split(";")[2];
 				valorSustituir = values.split(";")[3];
 				campoComprobar = values.split(";")[0];
@@ -668,7 +648,7 @@ public class Servidor {
 				String updateArrayN[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
 				
 				if(idServer.equals(leader)) {
-					System.out.println("es lider: ");
+					
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
 						byte [] respBytes = resp.getBytes("utf-8");
@@ -689,7 +669,6 @@ public class Servidor {
 				}
 				break;
 			case "updateCuenta":
-				System.out.println("entramos en updateCuenta");
 				
 				campoSustituir = values.split(";")[2];
 				valorSustituir = values.split(";")[3];
@@ -697,7 +676,7 @@ public class Servidor {
 				valorComprobar = values.split(";")[1];
 				String updateArrayC[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
 				if(idServer.equals(leader)) {
-					System.out.println("es lider: ");
+					
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
 						byte [] respBytes = resp.getBytes("utf-8");
@@ -719,14 +698,13 @@ public class Servidor {
 				}
 				break;
 			case "read":
-				System.out.println("entramos en read");
+				
 				valorComprobar = values;
 				
 				boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 				if(comp) {
 					org.json.JSONObject client = actionsDB.readClient(valorComprobar);
-					System.out.println("El cliente que se corresponde con este id es: ");
-					System.out.println(client);
+					
 					
 					//resp = interfaceCli.interface_cli();
 				}else {
@@ -736,7 +714,7 @@ public class Servidor {
 				}
 				break;	
 			case "readAll":
-				System.out.println("entramos en readAll");
+				
 				org.json.JSONArray clients = actionsDB.readAllClient();
 				System.out.println("Los clientes registrados son: ");
 				System.out.println(clients);
@@ -746,14 +724,13 @@ public class Servidor {
 				
 				valorComprobar = values;
 				if(idServer.equals(leader)) {
-					System.out.println("es lider: ");
+					
 					boolean compr= actionsDB.comprobarUpdate(valorComprobar);
 					if(compr) {
 						byte [] respBytes = resp.getBytes("utf-8");
 						addOperation(action, respBytes);
 						org.json.JSONObject client = actionsDB.deleteClient(valorComprobar);
-						System.out.println("El cliente eliminado ha sido: ");
-						System.out.println(client);
+						
 						//resp = interfaceCli.interface_cli();
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
@@ -780,10 +757,7 @@ public class Servidor {
 		String[] data = resp.split(":");
 		String action = data[0];
 		String values = data[1];
-		System.out.println("la accion será: ");
-		System.out.println(action);
-		System.out.println("valores: ");
-		System.out.println(values);
+		
 		byte[] updateByte = values.getBytes("utf-8");
 		//String sustituir = "\""+values.split(";")[2]+"\":\""+values.split(";")[3]+"\"";
 		String campoSustituir = "";
@@ -822,7 +796,7 @@ public class Servidor {
 				campoComprobar = values.split(";")[0];
 				valorComprobar = values.split(";")[1];
 				String updateArray[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
-				System.out.println("entramos en updateSaldo");
+				
 			
 				if(!idServer.equals(leader)) {
 					System.out.println("es lider: ");
@@ -840,7 +814,7 @@ public class Servidor {
 					}
 				break;
 			case "updateNombre":
-				System.out.println("entramos en updateNombre");
+				
 				campoSustituir = values.split(";")[2];
 				valorSustituir = values.split(";")[3];
 				campoComprobar = values.split(";")[0];
@@ -848,20 +822,19 @@ public class Servidor {
 				String updateArrayN[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
 				
 				if(!idServer.equals(leader)) {
-					System.out.println("es lider: ");
+					
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
 						actionsDB.update(updateArrayN);
 						
 						//resp = interfaceCli.interface_cli();
 					}else {
-						System.out.println("No existe ningun cliente con ese número de cuenta");
+						
 						//resp = interfaceCli.interface_cli();
 					}
 				}
 				break;
 			case "updateCuenta":
-				System.out.println("entramos en updateCuenta");
 				
 				campoSustituir = values.split(";")[2];
 				valorSustituir = values.split(";")[3];
@@ -869,7 +842,7 @@ public class Servidor {
 				valorComprobar = values.split(";")[1];
 				String updateArrayC[] = {campoSustituir,valorSustituir,campoComprobar, valorComprobar};
 				if(!idServer.equals(leader)) {
-					System.out.println("es lider: ");
+					
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
 						byte [] respBytes = resp.getBytes("utf-8");
@@ -885,41 +858,33 @@ public class Servidor {
 				}
 				break;
 			case "read":
-				System.out.println("entramos en read");
+				
 				valorComprobar = values;
 				
 				boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 				if(comp) {
 					org.json.JSONObject client = actionsDB.readClient(valorComprobar);
-					System.out.println("El cliente que se corresponde con este id es: ");
-					System.out.println(client);
-					
-					//resp = interfaceCli.interface_cli();
+				
 				}else {
 					System.out.println("No existe ningun cliente con ese número de cuenta");
-					//resp = interfaceCli.interface_cli();
 					
 				}
 				break;
 			case "readAll":
-				System.out.println("entramos en readAll");
+				
 				org.json.JSONArray clients = actionsDB.readAllClient();
-				System.out.println("Los clientes registrados son: ");
-				System.out.println(clients);
-				//resp = interfaceCli.interface_cli();
+				
 				break;
 			case "delete":
 				
 				valorComprobar = values;
 				if(!idServer.equals(leader)) {
-					System.out.println("es lider: ");
+					
 					boolean compr= actionsDB.comprobarUpdate(valorComprobar);
 					if(compr) {
 						byte [] respBytes = resp.getBytes("utf-8");
 						org.json.JSONObject client = actionsDB.deleteClient(valorComprobar);
-						System.out.println("El cliente eliminado ha sido: ");
-						System.out.println(client);
-						//resp = interfaceCli.interface_cli();
+						
 					}else {
 						System.out.println("No existe ningun cliente con ese número de cuenta");
 						//resp = interfaceCli.interface_cli();
