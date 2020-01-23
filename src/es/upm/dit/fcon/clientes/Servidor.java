@@ -130,7 +130,7 @@ public class Servidor {
 						// Created the znode, if it is not created.
 						cola = zk.create(ROOT_COLA, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 						System.out.println("Response rootCola: " + cola);
-						zk.getChildren(ROOT_COLA, watcherCola);
+						//zk.getChildren(ROOT_COLA, watcherCola);
 					}
 					
 					
@@ -166,7 +166,7 @@ public class Servidor {
 				idServer = zk.create(ROOT_SERVIDORES + aServer , new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);
 				idServer= idServer.replace(ROOT_SERVIDORES + "/", "");
 				System.out.println("Mi ID es: " + idServer);
-				zk.getChildren(ROOT_SERVIDORES, watcherServerLd);
+				zk.getChildren(ROOT_SERVIDORES, watcherServidores);
 				selectLeader();
 				//replicateDBNewServer();
 				//zk.getChildren(ROOT_SERVIDORES,  watcherServidores);
@@ -245,8 +245,11 @@ public class Servidor {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_SERVIDORES,  watcherServidores); //this);
 					printList(list);
-					zk.getChildren(ROOT_COLA, watcherCola);
+					
 					selectLeader();
+					if (idServer.equals(leader)) {
+						zk.getChildren(ROOT_COLA, watcherCola);
+					}
 					
 				} catch (Exception e) {
 					System.out.println("Exception: wacherServidores");
@@ -269,22 +272,7 @@ public class Servidor {
 			}
 		};
 		
-		private Watcher  watcherServerLd = new Watcher() {
-			public void process(WatchedEvent event) {
-				System.out.println("------------------Watcher ServerLd------------------\n");		
-				try {
-					System.out.println("        Update!!");
-					List<String> list = zk.getChildren(ROOT_SERVIDORES,  watcherServerLd); //this);
-					printList(list);
-					selectLeader();
-					System.out.println("Salta watcher lider y actualizamos a: ");
-					System.out.print(leader);
-					
-				} catch (Exception e) {
-					System.out.println("Exception: wacherMemberLd");
-				}
-			}
-		};
+		
 		
 		private Watcher  watcherOpHijo = new Watcher() {
 			public void process(WatchedEvent event) {
@@ -328,6 +316,7 @@ public class Servidor {
 			Object[] opCola= new Object[2];
 			
 			try {
+				//listCola = zk.getChildren(ROOT_COLA, watcherCola, s); 
 				listCola = zk.getChildren(ROOT_COLA, false, s); 
 			} catch (Exception e) {
 				System.out.println("Unexpected Exception process barrier");
