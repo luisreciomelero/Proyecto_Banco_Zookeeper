@@ -113,7 +113,7 @@ public class Servidor {
 						// Created the znode, if it is not created.
 						operaciones = zk.create(ROOT_OPERACIONES, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 						System.out.println("Response rootOperaciones: " + operaciones);
-						//zk.getChildren(ROOT_OPERACIONES, watcherOperaciones);
+						
 					}
 					if (s == null) {
 						// Created the znode, if it is not created.
@@ -151,7 +151,7 @@ public class Servidor {
 			System.out.println(leader);
 		}
 		
-		public void createServer() throws KeeperException, InterruptedException {
+		public void createServer() throws KeeperException, InterruptedException, IOException {
 			String servidor = new String();
 			//Stat s = zk.exists(ROOT_SERVIDORES + aServer + idServer, watcherServidores);
 			
@@ -160,10 +160,17 @@ public class Servidor {
 				idServer = zk.create(ROOT_SERVIDORES + aServer , new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);
 				idServer= idServer.replace(ROOT_SERVIDORES + "/", "");
 				System.out.println("Mi ID es: " + idServer);
+				selectLeader();
+				//replicateDBNewServer();
 				zk.getChildren(ROOT_SERVIDORES,  watcherServidores);
 				
+				if (!idServer.equals(leader)) {
+					zk.getChildren(ROOT_OPERACIONES, watcherOperaciones);
+				}
 				
-				selectLeader();
+				
+				
+				
 			} catch (KeeperException e) {
 				System.out.println("The session with Zookeeper failes. Closing");
 				return;
@@ -214,7 +221,7 @@ public class Servidor {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_OPERACIONES,  false); //this);
 					printList(list, "operaciones");
-					//produceOperations();
+					produceOperations();
 					
 				} catch (Exception e) {
 					System.out.println("Exception: wacherOperaciones");
@@ -344,6 +351,8 @@ public class Servidor {
 		}
 		
 		private void produceOperations() {
+			System.out.print("ENTRAMOS EN PRODUCEOPERATIONS, idServer: ");
+			System.out.print(idServer);
 			Stat s = null;
 			String path = null;
 			String data = "";
@@ -405,7 +414,11 @@ public class Servidor {
 		}
 		
 		public void createZnodeRepOp(String path) throws KeeperException, InterruptedException {
-			zk.create(path + "/"+idServer, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
+			System.out.print("LLEGA PATH: ");
+			System.out.print(path);
+			System.out.print("LLEGA idServer: ");
+			System.out.print(idServer);
+			zk.create(path + "/"+idServer, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 		}
 		
 		////////////////////////////////////////////////////////////////////////////////////
@@ -430,6 +443,15 @@ public class Servidor {
 			return;
 		}
 		
+	}
+	
+	public void replicateDBNewServer() throws IOException {
+		if (leader != null) {
+			idLeader=leader.split("-")[1];
+			String rutaDB = "/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+idLeader+".json";
+			org.json.JSONArray clientList = actionsDB.readDB(rutaDB);
+			actionsDB.writeDB(clientList);
+		}
 	}
 	
 	private JSONObject generateClient (String data) {
@@ -466,7 +488,7 @@ public class Servidor {
 	}
 	
 	
-	private void createServerZk () throws KeeperException, InterruptedException {
+	private void createServerZk () throws KeeperException, InterruptedException, IOException {
 		createServer();
 	}
 
@@ -951,6 +973,7 @@ public class Servidor {
 				
 				serv.actionsDB = new ActionsDB(serv.idBBDD);
 				serv.createDB(serv.ruta);
+				serv.replicateDBNewServer();
 				serv.interface_cli();
 				
 				

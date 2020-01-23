@@ -17,13 +17,13 @@ import org.json.JSONObject;
 
 public class ActionsDB {
 	
-	private static String idServer;
+	private String idServer;
 	
 	public ActionsDB(String idServer) {
 		this.idServer=idServer;
 	}
 	
-	private static JSONArray readDB (String rutaDB) {
+	public  JSONArray readDB (String rutaDB) {
 		JSONArray clientList = null;
 		try {
 			JSONParser jsonParser = new JSONParser();
@@ -46,7 +46,7 @@ public class ActionsDB {
 		
 	}
 	
-	public static boolean comprobarUpdate(String nCuenta)  {
+	public boolean comprobarUpdate(String nCuenta)  {
 		
 		String rutaDB = "/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+idServer+".json";
 		JSONArray clientList = readDB(rutaDB);
@@ -65,7 +65,7 @@ public class ActionsDB {
 	
 	}
 	
-	public static int getIdClient(String nCuenta) throws IOException, ParseException {
+	public int getIdClient(String nCuenta) throws IOException, ParseException {
 		
 		//String rutaDB = "/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+idServer+".json";
 		String rutaDB = "/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+idServer+".json";
@@ -83,7 +83,7 @@ public class ActionsDB {
 	
 	}
 	
-	private void writeDB(JSONArray jsonarray) throws IOException {
+	public void writeDB(JSONArray jsonarray) throws IOException {
 		String rutaDB = "/Users/luisreciomelero/Desktop/eclipse-workspace/Banco_Zookeeper/src/es/upm/dit/fcon/clientes/bd"+idServer+".json";
 		FileWriter file = new FileWriter(rutaDB);
 		file.write(jsonarray.toString());
