@@ -166,6 +166,7 @@ public class Servidor {
 				idServer = zk.create(ROOT_SERVIDORES + aServer , new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.EPHEMERAL_SEQUENTIAL);
 				idServer= idServer.replace(ROOT_SERVIDORES + "/", "");
 				System.out.println("Mi ID es: " + idServer);
+				zk.getChildren(ROOT_SERVIDORES, watcherServerLd);
 				selectLeader();
 				//replicateDBNewServer();
 				//zk.getChildren(ROOT_SERVIDORES,  watcherServidores);
@@ -244,6 +245,7 @@ public class Servidor {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_SERVIDORES,  watcherServidores); //this);
 					printList(list);
+					zk.getChildren(ROOT_COLA, watcherCola);
 					selectLeader();
 					
 				} catch (Exception e) {
@@ -274,6 +276,9 @@ public class Servidor {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_SERVIDORES,  watcherServerLd); //this);
 					printList(list);
+					selectLeader();
+					System.out.println("Salta watcher lider y actualizamos a: ");
+					System.out.print(leader);
 					
 				} catch (Exception e) {
 					System.out.println("Exception: wacherMemberLd");
@@ -590,7 +595,8 @@ public class Servidor {
 		createServer();
 	}
 
-	private void doAction(String resp) throws UnsupportedEncodingException {
+	private void doAction(String resp) throws UnsupportedEncodingException, KeeperException, InterruptedException {
+		selectLeader();
 		String[] data = resp.split(":");
 		String action = data[0];
 		String values = data[1];
@@ -940,7 +946,7 @@ public class Servidor {
 		}
 	}
 	
-	public void interface_cli() throws UnsupportedEncodingException {
+	public void interface_cli() throws UnsupportedEncodingException, KeeperException, InterruptedException {
 		
 		Scanner sn = new Scanner(System.in);
         boolean salir = false;
