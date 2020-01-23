@@ -17,7 +17,9 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.InputMismatchException;
 import java.util.Iterator;
@@ -56,6 +58,9 @@ public class Servidor {
 	private  int nOperations = 0;
 	private List<String> listCola = null;
 	private List<String> listOperations = null;
+	private List<String> listServDoneOp = null;
+	private List<String> listServers = null;
+	private List<String> listSlaves = null;
 	
 	
 	private String  aServer     = "/Server-";
@@ -119,6 +124,7 @@ public class Servidor {
 						// Created the znode, if it is not created.
 						servidores = zk.create(ROOT_SERVIDORES, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
 						System.out.println("Response rootServidores: " + servidores);
+						zk.getChildren(ROOT_SERVIDORES,  watcherServidores);
 					}
 					if (c == null) {
 						// Created the znode, if it is not created.
@@ -162,10 +168,11 @@ public class Servidor {
 				System.out.println("Mi ID es: " + idServer);
 				selectLeader();
 				//replicateDBNewServer();
-				zk.getChildren(ROOT_SERVIDORES,  watcherServidores);
+				//zk.getChildren(ROOT_SERVIDORES,  watcherServidores);
 				
 				if (!idServer.equals(leader)) {
 					zk.getChildren(ROOT_OPERACIONES, watcherOperaciones);
+					
 				}
 				
 				
@@ -186,7 +193,9 @@ public class Servidor {
 		}
 		public void addOperation(String action, byte[] clientByte) throws KeeperException, InterruptedException {
 			
-			zk.create(ROOT_OPERACIONES + "/"+ action +"-", clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
+			String path = zk.create(ROOT_OPERACIONES + "/"+ action +"-", clientByte, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL);
+			
+			zk.getChildren(path, watcherOpHijo);
 			nOperations++;
 		}
 		
@@ -220,7 +229,7 @@ public class Servidor {
 				try {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_OPERACIONES,  false); //this);
-					printList(list, "operaciones");
+					printList(list);
 					produceOperations();
 					
 				} catch (Exception e) {
@@ -234,7 +243,7 @@ public class Servidor {
 				try {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_SERVIDORES,  watcherServidores); //this);
-					printList(list, "servidores");
+					printList(list);
 					selectLeader();
 					
 				} catch (Exception e) {
@@ -249,7 +258,7 @@ public class Servidor {
 				try {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_COLA,  false); //this);
-					printList(list, "cola");
+					printList(list);
 					produceCola();
 					
 				} catch (Exception e) {
@@ -264,18 +273,35 @@ public class Servidor {
 				try {
 					System.out.println("        Update!!");
 					List<String> list = zk.getChildren(ROOT_SERVIDORES,  watcherServerLd); //this);
-					printList(list, ROOT_OPERACIONES);
+					printList(list);
 					
 				} catch (Exception e) {
 					System.out.println("Exception: wacherMemberLd");
 				}
 			}
 		};
+		
+		private Watcher  watcherOpHijo = new Watcher() {
+			public void process(WatchedEvent event) {
+				System.out.println("------------------Watcher OpHijos------------------\n");		
+				try {
+					System.out.println("        Update!!");
+					System.out.println("lanzamos watcherOpHijo desde: ");
+					System.out.println(event.getPath());
+					List<String> list = zk.getChildren(event.getPath(),  false); //this);
+					printList(list);
+					produceOperationsHijo(event.getPath());
+					
+				} catch (Exception e) {
+					System.out.println("Exception: wacherCola");
+				}
+			}
+		};
 
 		
 		
-		private void printList (List<String> list, String dir) {
-			System.out.println("Remaining #:" + dir + list.size());
+		private void printList (List<String> list) {
+			//System.out.println("Remaining #:" + dir + list.size());
 			for (Iterator iterator = list.iterator(); iterator.hasNext();) {
 				String string = (String) iterator.next();
 				System.out.print(string + ", ");				
@@ -359,43 +385,50 @@ public class Servidor {
 			//Object[] opCola= new Object[2];
 			
 			try {
-				listOperations = zk.getChildren(ROOT_OPERACIONES, false, s); 
+				//listOperations = zk.getChildren(ROOT_OPERACIONES, false, s); 
+				listOperations = zk.getChildren(ROOT_OPERACIONES, watcherOperaciones, s); 
 			} catch (Exception e) {
 				System.out.println("Unexpected Exception process barrier");
 			}
 	
 			try {
-				//System.out.println(listProducts.get(0));
-				path = ROOT_OPERACIONES+"/"+listOperations.get(0);
-				//System.out.println(path);
-				byte[] b = zk.getData(path, false, s);
-				s = zk.exists(path, false);
-				
-				//System.out.println(s.getVersion());
-				//zk.delete(path, s.getVersion());
-				createZnodeRepOp(path);
-				
-				// Generate random delay
-				Random rand = new Random();
-				int r = rand.nextInt(10);
-				// Loop for rand iterations
-				for (int j = 0; j < r; j++) {
-					try {
-						Thread.sleep(100);
-					} catch (InterruptedException e) {
+				for (String op : listOperations) {
+					//System.out.println(listProducts.get(0));
+					System.out.println("Sin path: ");
+					path = ROOT_OPERACIONES+"/"+op;
+					System.out.println("path: ");
+					System.out.println(path);
+					//System.out.println(path);
+					byte[] b = zk.getData(path, false, s);
+					s = zk.exists(path, false);
+					
+					//System.out.println(s.getVersion());
+					//zk.delete(path, s.getVersion());
+					createZnodeRepOp(path);
+					
+					// Generate random delay
+					Random rand = new Random();
+					int r = rand.nextInt(10);
+					// Loop for rand iterations
+					for (int j = 0; j < r; j++) {
+						try {
+							Thread.sleep(100);
+						} catch (InterruptedException e) {
 
+						}
 					}
+					zk.getChildren(ROOT_OPERACIONES, watcherOperaciones, s); 
+	                //ByteBuffer buffer = ByteBuffer.wrap(b);
+	                //data = buffer.getInt();
+					Charset charset = Charset.forName("ISO-8859-1");
+					ByteBuffer buffer = ByteBuffer.wrap(b);
+					data=charset.decode(buffer).toString();
+					//data = Arrays.toString(buffer.array());
+					
+					
+					doActionSlave(data);
 				}
-				zk.getChildren(ROOT_OPERACIONES, watcherOperaciones, s); 
-                //ByteBuffer buffer = ByteBuffer.wrap(b);
-                //data = buffer.getInt();
-				Charset charset = Charset.forName("ISO-8859-1");
-				ByteBuffer buffer = ByteBuffer.wrap(b);
-				data=charset.decode(buffer).toString();
-				//data = Arrays.toString(buffer.array());
 				
-				
-				doActionSlave(data);
                 
           
                 
@@ -413,12 +446,77 @@ public class Servidor {
 			
 		}
 		
+		public boolean equalsList(List<String> listServDoneOp, List<String> listSlave) {
+			
+			List<String> listServDoneOpPrueba = new ArrayList(listServDoneOp);
+			List<String> listSlavePrueba = new ArrayList(listSlave);
+			boolean conf=false;
+			
+			for (String serverDone: listServDoneOp) {
+				listSlavePrueba.remove(serverDone);
+			}
+			System.out.println("listSlavePrueba QUEDA");
+			System.out.println(listSlavePrueba);
+			
+			for (String serverSlave: listSlave) {
+				listServDoneOpPrueba.remove(serverSlave);
+			}
+			System.out.println("listServDoneOpPrueba QUEDA");
+			System.out.println(listServDoneOpPrueba);
+			
+			if(listServDoneOpPrueba.size()==0 && listSlavePrueba.size()==0) {
+				conf=true;
+			}
+			return conf;
+			
+		}
+		
+		public void produceOperationsHijo(String path) {
+			System.out.print("ENTRAMOS EN PRODUCEOPERATIONSHIJO, idServer: ");
+			System.out.print(idServer);
+			Stat s = null;
+			
+			
+			try {
+				listServDoneOp = zk.getChildren(path , false, s); 
+				listServers = zk.getChildren(ROOT_SERVIDORES, false);
+				System.out.println("Lista listServDoneOp: ");
+				System.out.println(listServDoneOp);
+				System.out.println("Lista listServers: ");
+				System.out.println(listServers);
+				listSlaves = zk.getChildren(ROOT_SERVIDORES, false);
+				listSlaves.remove(leader);
+				System.out.println("Lista listSlaves: ");
+				System.out.println(listSlaves);
+				
+				if(equalsList(listServDoneOp,listSlaves)) {
+					for(String serverSlave: listServDoneOp) {
+						String zNodeChild = path+"/"+serverSlave;
+						Stat sc = zk.exists(zNodeChild, false);
+						zk.delete(zNodeChild, sc.getVersion());
+					}
+					s = zk.exists(path, false);
+					zk.delete(path, s.getVersion());
+				}else {
+					zk.getChildren(path, watcherOpHijo);
+				}
+				
+				
+				
+			} catch (Exception e) {
+				System.out.println("Unexpected Exception process barrier");
+			}
+			
+		}
+		
 		public void createZnodeRepOp(String path) throws KeeperException, InterruptedException {
 			System.out.print("LLEGA PATH: ");
 			System.out.print(path);
 			System.out.print("LLEGA idServer: ");
 			System.out.print(idServer);
 			zk.create(path + "/"+idServer, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+			
+			
 		}
 		
 		////////////////////////////////////////////////////////////////////////////////////
@@ -565,6 +663,7 @@ public class Servidor {
 					addOpQueue(action, respBytes);
 					//resp = interfaceCli.interface_cli();
 				}
+				break;
 			case "updateNombre":
 				System.out.println("entramos en updateNombre");
 				campoSustituir = values.split(";")[2];
@@ -577,7 +676,8 @@ public class Servidor {
 					System.out.println("es lider: ");
 					boolean comp= actionsDB.comprobarUpdate(valorComprobar);
 					if(comp) {
-						addOperation(action, updateByte);
+						byte [] respBytes = resp.getBytes("utf-8");
+						addOperation(action, respBytes);
 						actionsDB.update(updateArrayN);
 						
 						//resp = interfaceCli.interface_cli();
@@ -592,6 +692,7 @@ public class Servidor {
 					addOpQueue(action, respBytes);
 					//resp = interfaceCli.interface_cli();
 				}
+				break;
 			case "updateCuenta":
 				System.out.println("entramos en updateCuenta");
 				
@@ -621,6 +722,7 @@ public class Servidor {
 					addOpQueue(action, respBytes);
 					//resp = interfaceCli.interface_cli();
 				}
+				break;
 			case "read":
 				System.out.println("entramos en read");
 				valorComprobar = values;
@@ -637,14 +739,14 @@ public class Servidor {
 					//resp = interfaceCli.interface_cli();
 					
 				}
-					
+				break;	
 			case "readAll":
 				System.out.println("entramos en readAll");
 				org.json.JSONArray clients = actionsDB.readAllClient();
 				System.out.println("Los clientes registrados son: ");
 				System.out.println(clients);
 				//resp = interfaceCli.interface_cli();
-				
+				break;
 			case "delete":
 				
 				valorComprobar = values;
@@ -670,7 +772,7 @@ public class Servidor {
 					addOpQueue(action, respBytes);
 					//resp = interfaceCli.interface_cli();
 				}
-				
+				break;
 			default:
 				break;
 			}
@@ -741,7 +843,7 @@ public class Servidor {
 						
 					}
 					}
-					
+				break;
 			case "updateNombre":
 				System.out.println("entramos en updateNombre");
 				campoSustituir = values.split(";")[2];
@@ -762,6 +864,7 @@ public class Servidor {
 						//resp = interfaceCli.interface_cli();
 					}
 				}
+				break;
 			case "updateCuenta":
 				System.out.println("entramos en updateCuenta");
 				
@@ -785,6 +888,7 @@ public class Servidor {
 						
 					}
 				}
+				break;
 			case "read":
 				System.out.println("entramos en read");
 				valorComprobar = values;
@@ -801,14 +905,14 @@ public class Servidor {
 					//resp = interfaceCli.interface_cli();
 					
 				}
-					
+				break;
 			case "readAll":
 				System.out.println("entramos en readAll");
 				org.json.JSONArray clients = actionsDB.readAllClient();
 				System.out.println("Los clientes registrados son: ");
 				System.out.println(clients);
 				//resp = interfaceCli.interface_cli();
-				
+				break;
 			case "delete":
 				
 				valorComprobar = values;
@@ -827,7 +931,7 @@ public class Servidor {
 						
 					}
 				}
-				
+				break;
 			default:
 				break;
 			}
@@ -895,6 +999,7 @@ public class Servidor {
                         			System.out.println("El nuevo saldo sera: " + nuevoSaldo + "€");
                         			resp=""+"updateSaldo:"+"Ncuenta;"+idClient+";"+"saldo;"+nuevoSaldo;
                         			doAction(resp);
+                        			break;
                         			
                         		case "2":
                         			System.out.println("Introduza el nuevo numero de cuenta");
@@ -903,6 +1008,7 @@ public class Servidor {
                         			System.out.println("El nuevo numero de cuenta sera: " + nuevoNumero);
                         			resp=""+"updateCuenta:"+"Ncuenta;"+idClient+";"+"Ncuenta;"+nuevoNumero;
                         			doAction(resp);
+                        			break;
                         		case "3":
                         			System.out.println("Introduza el nuevo nombre del propietario");
                         			Scanner s5 = new Scanner(System.in);
@@ -910,6 +1016,7 @@ public class Servidor {
                         			System.out.println("El nuevo propietario sera: " + nuevoPropietario);
                         			resp=""+"updateNombre:"+"Ncuenta;"+idClient+";"+"name;"+nuevoPropietario;
                         			doAction(resp);
+                        			break;
                  
                         	}
                         	
@@ -926,10 +1033,12 @@ public class Servidor {
                         System.out.println("Obteniendo datos de la cuenta: " +consultaC + " ...");
                         resp=""+"read:"+consultaC;
                         doAction(resp);
+                        break;
                     case "4":
                         System.out.println("Obteniendo el listado de clientes...");
                         resp=""+"readAll: ";
                         doAction(resp);
+                        break;
                     case "5":
                     	System.out.println("Introduzca el numero de cuenta a eliminar: ");
                     	Scanner c3 = new Scanner(System.in);
@@ -937,6 +1046,7 @@ public class Servidor {
                         System.out.println("Se eliminará la cuenta: " +eliminarC);
                         resp=""+"delete:"+eliminarC;
                         doAction(resp);
+                        break;
                     case "6":
                     	System.out.println("Cancelando operaciones " );
                     	salir = true;
@@ -978,7 +1088,7 @@ public class Servidor {
 				
 				
 				
-				serv.doAction(serv.resp);
+				//serv.doAction(serv.resp);
 				System.out.print("La respuesta ha sido: " + serv.resp);
 				
 				
